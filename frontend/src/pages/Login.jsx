@@ -1,21 +1,20 @@
 import { useState } from "react"
 import axios from "axios"
-import {
-  Link,
-  useNavigate
-} from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 
 function Login() {
-
   const [usuario, setUsuario] = useState("")
   const [senha, setSenha] = useState("")
 
   const navigate = useNavigate()
 
   async function fazerLogin() {
+    if (!usuario.trim() || !senha.trim()) {
+      alert("Por favor, preencha todos os campos.")
+      return
+    }
 
     try {
-
       const response = await axios.post(
         "http://localhost:3000/login",
         {
@@ -26,30 +25,28 @@ function Login() {
 
       console.log(response.data)
 
-      navigate("/dashboard")
+      // 🔥 IMPORTANTE: Guarda os dados do usuário (com a coluna perfil) na sessão do navegador
+      if (response.data.sucesso) {
+        localStorage.setItem("usuario", JSON.stringify(response.data.usuario))
+        navigate("/dashboard")
+      }
 
     } catch (error) {
-
       console.log(error)
-
       alert(
         error.response?.data?.mensagem ||
         "Erro no login"
       )
-
     }
-
   }
 
   return (
-
     <div
       className="d-flex justify-content-center align-items-center vh-100"
       style={{
         backgroundColor: "#f1f5f9"
       }}
     >
-
       <div
         className="card border-0 shadow-sm p-4"
         style={{
@@ -57,22 +54,19 @@ function Login() {
           borderRadius: "14px"
         }}
       >
-
         <div className="text-center mb-4">
-
           <div
             className="mx-auto mb-3 d-flex justify-content-center align-items-center"
             style={{
               width: "60px",
               height: "60px",
               backgroundColor: "#2563eb",
-              borderRadius: "14px",
-              fontSize: "28px"
+              borderRadius: "14px"
             }}
           >
-
-            🧸
-
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="#ffffff" viewBox="0 0 16 16">
+              <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6" />
+            </svg>
           </div>
 
           <h2
@@ -92,15 +86,12 @@ function Login() {
           >
             Sistema de Gestão de Brinquedoteca
           </p>
-
         </div>
 
         <div className="mb-3">
-
           <label className="form-label fw-semibold">
             Usuário
           </label>
-
           <input
             type="text"
             className="form-control"
@@ -112,15 +103,12 @@ function Login() {
               borderRadius: "10px"
             }}
           />
-
         </div>
 
         <div className="mb-4">
-
           <label className="form-label fw-semibold">
             Senha
           </label>
-
           <input
             type="password"
             className="form-control"
@@ -132,11 +120,10 @@ function Login() {
               borderRadius: "10px"
             }}
           />
-
         </div>
 
         <button
-          className="btn w-100 fw-semibold mb-3"
+          className="btn w-100 fw-semibold"
           onClick={fazerLogin}
           style={{
             height: "46px",
@@ -145,35 +132,13 @@ function Login() {
             color: "white"
           }}
         >
-
           Entrar
-
         </button>
 
-        <Link
-          to="/cadastro"
-          className="btn w-100 fw-semibold"
-          style={{
-            height: "46px",
-            borderRadius: "10px",
-            border: "1px solid #cbd5e1",
-            color: "#334155",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-
-          Criar conta
-
-        </Link>
-
+        {/* 🔥 O LINK ANTIGO DE "CRIAR CONTA" FOI EXCLUÍDO TOTALMENTE DAQUI */}
       </div>
-
     </div>
-
   )
-
 }
 
 export default Login

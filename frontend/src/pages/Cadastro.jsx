@@ -1,181 +1,130 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import axios from "axios"
-import {
-  Link,
-  useNavigate
-} from "react-router-dom"
+import { useNavigate } from "react-router-dom"
+import Navbar from "../components/Navbar"
+import Footer from "../components/Footer"
 
 function Cadastro() {
-
   const [usuario, setUsuario] = useState("")
   const [senha, setSenha] = useState("")
+  const [perfil, setPerfil] = useState("supervisora")
 
   const navigate = useNavigate()
 
-  async function cadastrar() {
+  useEffect(() => {
+    const usuarioLogado = JSON.parse(localStorage.getItem("usuario"))
+    
+    if (!usuarioLogado || usuarioLogado.perfil !== "admin") {
+      alert("Acesso negado! Apenas administradores podem gerenciar usuários.")
+      navigate("/dashboard")
+    }
+  }, [navigate])
 
-    try {
+  async function fazerCadastro(e) {
+    e.preventDefault()
 
-      const response = await axios.post(
-        "http://localhost:3000/usuario",
-        {
-          usuario,
-          senha
-        }
-      )
-
-      console.log(response.data)
-
-      alert("Usuário cadastrado com sucesso")
-
-      navigate("/")
-
-    } catch (error) {
-
-      console.log(error)
-
-      alert(
-        error.response?.data?.mensagem ||
-        "Erro ao cadastrar"
-      )
-
+    if (!usuario.trim() || !senha.trim()) {
+      alert("Por favor, preencha todos os campos.")
+      return
     }
 
+    try {
+      await axios.post("http://localhost:3000/usuario", {
+        usuario,
+        senha,
+        perfil
+      })
+
+      alert(`Usuário [${usuario}] cadastrado com sucesso como ${perfil}!`)
+      setUsuario("")
+      setSenha("")
+      setPerfil("supervisora")
+    } catch (error) {
+      console.log(error)
+      alert(error.response?.data?.mensagem || "Erro ao cadastrar usuário")
+    }
   }
 
   return (
+    <div>
+      <Navbar />
 
-    <div
-      className="d-flex justify-content-center align-items-center vh-100"
-      style={{
-        backgroundColor: "#f1f5f9"
-      }}
-    >
+      <div className="mb-4 mt-2 text-start">
+        <h2 className="fw-bold text-dark mb-1">Controle de Acessos</h2>
+        <p style={{ color: "#64748b", fontSize: "15px" }}>
+          Área administrativa para criação e gerenciamento de novas contas de usuário.
+        </p>
+      </div>
 
-      <div
-        className="card border-0 shadow-sm p-4"
-        style={{
-          width: "400px",
-          borderRadius: "14px"
+      <div 
+        className="card border-0 shadow-sm p-4 mx-auto mt-5 text-start" 
+        style={{ 
+          maxWidth: "460px", 
+          borderRadius: "8px",
+          backgroundColor: "#ffffff" 
         }}
       >
-
-        <div className="text-center mb-4">
-
-          <div
-            className="mx-auto mb-3 d-flex justify-content-center align-items-center"
-            style={{
-              width: "60px",
-              height: "60px",
-              backgroundColor: "#16a34a",
-              borderRadius: "14px",
-              fontSize: "28px"
-            }}
-          >
-
-            👤
-
+        <div className="mb-4">
+          <h4 className="fw-bold text-dark mb-1">Novo Usuário</h4>
+          <p className="text-muted small">Preencha as credenciais para liberar o acesso</p>
+        </div>
+        
+        <form onSubmit={fazerCadastro}>
+          <div className="mb-3">
+            <label className="form-label fw-semibold text-secondary small">Nome de Usuário</label>
+            <input
+              type="text"
+              className="form-control px-3"
+              placeholder="Digite o nome do usuário"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
+              style={{ height: "40px", borderRadius: "6px", fontSize: "14px" }}
+            />
           </div>
 
-          <h2
-            className="fw-bold mb-1"
-            style={{
-              color: "#0f172a"
-            }}
-          >
-            Cadastro
-          </h2>
+          <div className="mb-3">
+            <label className="form-label fw-semibold text-secondary small">Senha de Acesso</label>
+            <input
+              type="password"
+              className="form-control px-3"
+              placeholder="Digite uma senha"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              style={{ height: "40px", borderRadius: "6px", fontSize: "14px" }}
+            />
+          </div>
 
-          <p
+          <div className="mb-4">
+            <label className="form-label fw-semibold text-secondary small">Nível de Permissão (Perfil)</label>
+            <select
+              className="form-select px-3"
+              value={perfil}
+              onChange={(e) => setPerfil(e.target.value)}
+              style={{ height: "40px", borderRadius: "6px", fontSize: "14px" }}
+            >
+              <option value="supervisora">Supervisora (Acesso Operacional)</option>
+              <option value="admin">Administrador (Acesso Total)</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="btn text-white px-4 fw-semibold"
             style={{
-              color: "#64748b",
+              height: "40px",
+              borderRadius: "6px",
+              backgroundColor: "#2563eb",
               fontSize: "14px"
             }}
           >
-            Criar novo usuário
-          </p>
-
-        </div>
-
-        <div className="mb-3">
-
-          <label className="form-label fw-semibold">
-            Usuário
-          </label>
-
-          <input
-            type="text"
-            className="form-control"
-            placeholder="Digite o usuário"
-            value={usuario}
-            onChange={(e) => setUsuario(e.target.value)}
-            style={{
-              height: "46px",
-              borderRadius: "10px"
-            }}
-          />
-
-        </div>
-
-        <div className="mb-4">
-
-          <label className="form-label fw-semibold">
-            Senha
-          </label>
-
-          <input
-            type="password"
-            className="form-control"
-            placeholder="Digite a senha"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            style={{
-              height: "46px",
-              borderRadius: "10px"
-            }}
-          />
-
-        </div>
-
-        <button
-          className="btn w-100 fw-semibold mb-3"
-          onClick={cadastrar}
-          style={{
-            height: "46px",
-            borderRadius: "10px",
-            backgroundColor: "#16a34a",
-            color: "white"
-          }}
-        >
-
-          Cadastrar
-
-        </button>
-
-        <Link
-          to="/"
-          className="btn w-100 fw-semibold"
-          style={{
-            height: "46px",
-            borderRadius: "10px",
-            border: "1px solid #cbd5e1",
-            color: "#334155",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-
-          Voltar login
-
-        </Link>
-
+            Cadastrar Usuário
+          </button>
+        </form>
       </div>
 
+      <Footer />
     </div>
-
   )
-
 }
 
 export default Cadastro
