@@ -6,7 +6,7 @@ import {
   TIPOS_BRINQUEDOS, 
   ESTAGIO_COGNITIVO, 
   AREA_DESENVOLVIMENTO 
-} from "../utils/enums" // Ajuste o caminho se necessário
+} from "../utils/enums"
 
 function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
   const [nome, setNome] = useState("")
@@ -20,17 +20,17 @@ function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
   const [classificacaoJogo, setClassificacaoJogo] = useState(1)
   const [classificacaoBrinquedo, setClassificacaoBrinquedo] = useState(1)
 
-  // Escuta as alterações do componente pai para saber se está editando ou criando
+  // Sincroniza os estados com o item selecionado para edição
   useEffect(() => {
     if (itemParaEditar) {
       setNome(itemParaEditar.nome || "")
-      setTipo(itemParaEditar.tipo || 1)
+      setTipo(Number(itemParaEditar.tipo) || 1)
       setFaixaEtaria(itemParaEditar.faixaetaria || "")
       setQuantidade(itemParaEditar.quantidade_total || 0)
-      setEstagioCognitivo(itemParaEditar.estagiocognitivo || 1)
-      setAreaDesenvolvimento(itemParaEditar.areadesenvolvimento || 1)
-      setClassificacaoJogo(itemParaEditar.classificacao_jogo_id || 1)
-      setClassificacaoBrinquedo(itemParaEditar.classificacao_brinquedo_id || 1)
+      setEstagioCognitivo(Number(itemParaEditar.estagiocognitivo) || 1)
+      setAreaDesenvolvimento(Number(itemParaEditar.areadesenvolvimento) || 1)
+      setClassificacaoJogo(Number(itemParaEditar.classificacao_jogo_id) || 1)
+      setClassificacaoBrinquedo(Number(itemParaEditar.classificacao_brinquedo_id) || 1)
     } else {
       resetaCampos()
     }
@@ -61,18 +61,19 @@ function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
         quantidade_total: Number(quantidade),
         quantidade_disponivel: Number(quantidade),
         status: 1, // Ativo por padrão
+        // Se for tipo 1 (Jogo), envia dados de jogo, senão anula
         estagiocognitivo: Number(tipo) === 1 ? Number(estagioCognitivo) : null,
         classificacao_jogo_id: Number(tipo) === 1 ? Number(classificacaoJogo) : null,
+        // Se for tipo 2 (Brinquedo), envia dados de brinquedo, senão anula
         areadesenvolvimento: Number(tipo) === 2 ? Number(areaDesenvolvimento) : null,
         classificacao_brinquedo_id: Number(tipo) === 2 ? Number(classificacaoBrinquedo) : null
       }
 
       if (itemParaEditar) {
-        // Rota de Atualização (PUT)
-        await axios.put(`http://localhost:3000/item/${itemParaEditar.id_item}`, payload)
+        const idItem = itemParaEditar.id_item || itemParaEditar.id
+        await axios.put(`http://localhost:3000/item/${idItem}`, payload)
         alert("Material atualizado com sucesso!")
       } else {
-        // Rota de Cadastro (POST)
         await axios.post("http://localhost:3000/item", payload)
         alert("Material cadastrado com sucesso!")
       }
@@ -87,9 +88,10 @@ function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
   }
 
   function fecharEClearModal() {
-    document.getElementById("fecharModal").click()
+    const btnFechar = document.getElementById("fecharModal")
+    if (btnFechar) btnFechar.click()
     resetaCampos()
-    if (limparSelecao) limparSelecao() // Avisa o componente Pai para limpar o item selecionado
+    if (limparSelecao) limparSelecao()
   }
 
   return (
@@ -120,7 +122,7 @@ function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
               onChange={(e) => setTipo(Number(e.target.value))}
             >
               {Object.keys(TIPO_ITEM).map((key) => (
-                <option key={key} value={key}>{TIPO_ITEM[key]}</option>
+                <option key={key} value={Number(key)}>{TIPO_ITEM[key]}</option>
               ))}
             </select>
 
@@ -150,7 +152,7 @@ function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
                   onChange={(e) => setClassificacaoJogo(Number(e.target.value))}
                 >
                   {Object.keys(TIPOS_JOGOS).map((key) => (
-                    <option key={key} value={key}>{TIPOS_JOGOS[key]}</option>
+                    <option key={key} value={Number(key)}>{TIPOS_JOGOS[key]}</option>
                   ))}
                 </select>
 
@@ -161,7 +163,7 @@ function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
                   onChange={(e) => setEstagioCognitivo(Number(e.target.value))}
                 >
                   {Object.keys(ESTAGIO_COGNITIVO).map((key) => (
-                    <option key={key} value={key}>{key} - {ESTAGIO_COGNITIVO[key]}</option>
+                    <option key={key} value={Number(key)}>{key} - {ESTAGIO_COGNITIVO[key]}</option>
                   ))}
                 </select>
               </>
@@ -177,7 +179,7 @@ function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
                   onChange={(e) => setClassificacaoBrinquedo(Number(e.target.value))}
                 >
                   {Object.keys(TIPOS_BRINQUEDOS).map((key) => (
-                    <option key={key} value={key}>{TIPOS_BRINQUEDOS[key]}</option>
+                    <option key={key} value={Number(key)}>{TIPOS_BRINQUEDOS[key]}</option>
                   ))}
                 </select>
 
@@ -188,7 +190,7 @@ function ModalItem({ buscarItens, itemParaEditar, limparSelecao }) {
                   onChange={(e) => setAreaDesenvolvimento(Number(e.target.value))}
                 >
                   {Object.keys(AREA_DESENVOLVIMENTO).map((key) => (
-                    <option key={key} value={key}>{key} - {AREA_DESENVOLVIMENTO[key]}</option>
+                    <option key={key} value={Number(key)}>{key} - {AREA_DESENVOLVIMENTO[key]}</option>
                   ))}
                 </select>
               </>

@@ -7,14 +7,18 @@ import Footer from "../components/Footer"
 function Cadastro() {
   const [usuario, setUsuario] = useState("")
   const [senha, setSenha] = useState("")
-  const [perfil, setPerfil] = useState("supervisora")
+  const [perfil, setPerfil] = useState("SUPERVISORA")
 
   const navigate = useNavigate()
 
   useEffect(() => {
     const usuarioLogado = JSON.parse(localStorage.getItem("usuario"))
     
-    if (!usuarioLogado || usuarioLogado.perfil !== "admin") {
+    // 💡 REGRA DO UPPERCASE: Garante que o perfil do administrador logado 
+    // seja validado em maiúsculo, permitindo a entrada na tela de cadastro.
+    const perfilFormatado = usuarioLogado?.perfil?.toUpperCase()
+    
+    if (!usuarioLogado || perfilFormatado !== "ADMIN") {
       alert("Acesso negado! Apenas administradores podem gerenciar usuários.")
       navigate("/dashboard")
     }
@@ -29,16 +33,17 @@ function Cadastro() {
     }
 
     try {
+      // Envia o perfil transformado em UPPERCASE para a API
       await axios.post("http://localhost:3000/usuario", {
         usuario,
         senha,
-        perfil
+        perfil: perfil.toUpperCase()
       })
 
       alert(`Usuário [${usuario}] cadastrado com sucesso como ${perfil}!`)
       setUsuario("")
       setSenha("")
-      setPerfil("supervisora")
+      setPerfil("SUPERVISORA")
     } catch (error) {
       console.log(error)
       alert(error.response?.data?.mensagem || "Erro ao cadastrar usuário")
@@ -102,8 +107,8 @@ function Cadastro() {
               onChange={(e) => setPerfil(e.target.value)}
               style={{ height: "40px", borderRadius: "6px", fontSize: "14px" }}
             >
-              <option value="supervisora">Supervisora (Acesso Operacional)</option>
-              <option value="admin">Administrador (Acesso Total)</option>
+              <option value="SUPERVISORA">Supervisora (Acesso Operacional)</option>
+              <option value="ADMIN">Administrador (Acesso Total)</option>
             </select>
           </div>
 

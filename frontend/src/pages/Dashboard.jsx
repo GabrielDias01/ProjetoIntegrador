@@ -7,12 +7,12 @@ import TabelaMovimentacoes from "../components/TabelaMovimentacoes"
 import Footer from "../components/Footer"
 
 function Dashboard() {
-  // Iniciamos com um objeto preenchido por zeros para a tela já nascer montada
   const [dados, setDados] = useState({
     totalItens: 0,
     totalAlunos: 0,
     totalEmprestimos: 0,
-    totalMovimentacoes: 0
+    totalMovimentacoes: 0,
+    movimentacoes: []
   })
   const [carregando, setCarregando] = useState(true)
 
@@ -22,10 +22,30 @@ function Dashboard() {
 
   async function buscarDados() {
     try {
+      setCarregando(true)
       const response = await axios.get("http://localhost:3000/dashboard")
-      setDados(response.data)
+      
+      // Armazena a resposta da API
+      const respostaApi = response.data || {}
+
+      // BLINDAGEM: Descobre onde a lista está escondida dentro da resposta do backend
+      const listaExtraida = 
+        respostaApi.movimentacoes || 
+        respostaApi.ultimasMovimentacoes || 
+        respostaApi.historico || 
+        []
+
+      // Atualiza o estado garantindo os contadores e a lista mapeada corretamente
+      setDados({
+        totalItens: respostaApi.totalItens || 0,
+        totalAlunos: respostaApi.totalAlunos || 0,
+        totalEmprestimos: respostaApi.totalEmprestimos || 0,
+        totalMovimentacoes: respostaApi.totalMovimentacoes || 0,
+        movimentacoes: listaExtraida
+      })
+
     } catch (error) {
-      console.log(error)
+      console.error("Erro ao buscar dados do Dashboard:", error)
     } finally {
       setCarregando(false)
     }
@@ -49,7 +69,6 @@ function Dashboard() {
         </p>
       </div>
 
-      {/* Os cards sempre vão existir na tela, evitando o flash de desmontagem */}
       <div className="row g-3 mb-4 text-start">
         <div className="col-md-3">
           <CardDashboard titulo="Itens" valor={dados.totalItens} />
@@ -67,7 +86,11 @@ function Dashboard() {
 
       <div className="card border-0 shadow-sm p-4 mb-4 text-start" style={{ borderRadius: "8px", backgroundColor: "#ffffff" }}>
         <h4 className="fw-bold text-black mb-4">Últimas Movimentações</h4>
-        <TabelaMovimentacoes />
+        {carregando ? (
+          <p className="text-muted">Carregando movimentações...</p>
+        ) : (
+          <TabelaMovimentacoes movimentacoes={dados.movimentacoes} />
+        )}
       </div>
 
       <Footer />

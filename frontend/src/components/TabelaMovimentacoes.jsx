@@ -45,7 +45,7 @@ function TabelaMovimentacoes({
                 <tr key={index}>
 
                   <td>
-                    {item.material}
+                    {item.material || item.nome_item || item.item}
                   </td>
 
                   <td>

@@ -1,10 +1,11 @@
-import { Link, useNavigate } from "react-router-dom"
+import { Link, useNavigate, useLocation } from "react-router-dom"
 
 function Sidebar() {
   const navigate = useNavigate()
+  const location = useLocation()
 
   const usuarioLogado = JSON.parse(localStorage.getItem("usuario")) || {}
-  const isAdmin = usuarioLogado.perfil === "admin"
+  const isAdmin = usuarioLogado.perfil?.toUpperCase() === "ADMIN"
 
   function fazerLogout() {
     localStorage.removeItem("usuario")
@@ -28,7 +29,7 @@ function Sidebar() {
           <li>
             <Link
               to="/dashboard"
-              className="btn btn-dark w-100 text-start border-0 text-white"
+              className={`btn w-100 text-start border-0 text-white ${location.pathname === "/dashboard" ? "bg-secondary" : "btn-dark"}`}
               style={{ fontSize: "14px", padding: "10px 16px" }}
             >
               Dashboard
@@ -38,10 +39,21 @@ function Sidebar() {
           <li>
             <Link
               to="/materiais"
-              className="btn btn-dark w-100 text-start border-0 text-white"
+              className={`btn w-100 text-start border-0 text-white ${location.pathname === "/materiais" ? "bg-secondary" : "btn-dark"}`}
               style={{ fontSize: "14px", padding: "10px 16px" }}
             >
               Materiais
+            </Link>
+          </li>
+
+          {/* 💡 LINK DA NOVA PÁGINA DE MOVIMENTAÇÃO */}
+          <li>
+            <Link
+              to="/movimentacao"
+              className={`btn w-100 text-start border-0 text-white ${location.pathname === "/movimentacao" ? "bg-secondary" : "btn-dark"}`}
+              style={{ fontSize: "14px", padding: "10px 16px" }}
+            >
+              Movimentações
             </Link>
           </li>
 
@@ -49,7 +61,7 @@ function Sidebar() {
             <li>
               <Link
                 to="/cadastro"
-                className="btn btn-dark w-100 text-start border-0 text-white"
+                className={`btn w-100 text-start border-0 text-white ${location.pathname === "/cadastro" ? "bg-secondary" : "btn-dark"}`}
                 style={{ fontSize: "14px", padding: "10px 16px" }}
               >
                 Criar Usuário

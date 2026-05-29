@@ -10,6 +10,7 @@ import Cadastro from "./pages/Cadastro"
 import Dashboard from "./pages/Dashboard"
 import Materiais from "./pages/Materiais"
 import Sidebar from "./components/Sidebar"
+import Movimentacao from "./pages/Movimentacao"
 
 function LayoutPrivado() {
   return (
@@ -53,6 +54,10 @@ function App() {
             path="/cadastro"
             element={<Cadastro />}
           />
+          <Route
+            path="/movimentacao"
+            element={<Movimentacao />} />
+            
         </Route>
       </Routes>
     </BrowserRouter>
