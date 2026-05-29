@@ -315,7 +315,7 @@ function Movimentacao() {
           <div className="card border-0 shadow-sm p-4" style={{ borderRadius: "10px", backgroundColor: "#ffffff" }}>
             <div className="d-flex justify-content-between align-items-center mb-4">
               <div>
-                <h5 className="fw-bold text-dark mb-1" style={{ fontSize: "16px" }}>Histórico de Movimentações</h5>
+                <h5 className="fw-bold text-dark mb-1" style={{ fontSize: "16px" }}>Histórico de Empréstimos</h5>
                 <small className="text-muted">{historico.length} registros encontrados</small>
               </div>
             </div>

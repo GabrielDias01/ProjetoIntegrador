@@ -24,6 +24,15 @@ const obterDataLocalBR = () => {
   return `${ano}-${mes.padStart(2, "0")}-${dia.padStart(2, "0")}`
 }
 
+// Helper para tratar problemas de fuso horário na ordenação do JS
+const normalizarDataParaOrdenacao = (dataStr) => {
+  if (!dataStr) return new Date(0)
+  if (dataStr.includes("-") && !dataStr.includes("T")) {
+    return new Date(`${dataStr}T12:00:00`)
+  }
+  return new Date(dataStr)
+}
+
 // ==========================================
 // LOGIN
 // ==========================================
@@ -51,7 +60,7 @@ app.post("/login", async (req, res) => {
     res.json({ sucesso: true, usuario: usuarioBanco })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ sucesso: false, mensagem: "Erro interno" })
+    res.status(500).json({ sucesso: false, message: "Erro interno" })
   }
 })
 
@@ -284,7 +293,7 @@ app.get("/aluno/ra/:ra", async (req, res) => {
 })
 
 // ==========================================
-// REGISTRAR MOVIMENTAÇÃO / EMPRÉSTIMO (CORRIGIDO ERRO 500)
+// REGISTRAR MOVIMENTAÇÃO / EMPRÉSTIMO
 // ==========================================
 app.post("/movimentacao", async (req, res) => {
   try {
@@ -295,9 +304,6 @@ app.post("/movimentacao", async (req, res) => {
 
     const dataHoje = obterDataLocalBR()
 
-    // ======================================
-    // AQUISIÇÃO / DOAÇÃO
-    // ======================================
     if (tipo_movimentacao === "Aquisição" || tipo_movimentacao === "Doação") {
       const { data: item } = await supabase
         .from("item")
@@ -328,9 +334,6 @@ app.post("/movimentacao", async (req, res) => {
       return res.json({ sucesso: true, message: "Entrada registrada" })
     }
 
-    // ======================================
-    // DESCARTE
-    // ======================================
     if (tipo_movimentacao === "Descarte") {
       const { data: item } = await supabase
         .from("item")
@@ -361,9 +364,6 @@ app.post("/movimentacao", async (req, res) => {
       return res.json({ sucesso: true, mensagem: "Descarte registrado" })
     }
 
-    // ======================================
-    // EMPRÉSTIMO
-    // ======================================
     if (tipo_movimentacao === "Empréstimo") {
       if (!itens || itens.length === 0) {
         return res.status(400).json({ sucesso: false, mensagem: "Adicione itens na sacola!" })
@@ -412,20 +412,20 @@ app.post("/movimentacao", async (req, res) => {
         }
       }
 
-      // CORREÇÃO DO ID_USUARIO (Busca um usuário válido dinamicamente do seu banco para não quebrar a FK)
       const { data: usuarios } = await supabase.from("usuario").select("id_usuario").limit(1)
       if (!usuarios || usuarios.length === 0) {
         return res.status(400).json({ sucesso: false, mensagem: "Nenhum usuário cadastrado no sistema para assinar o empréstimo!" })
       }
       const usuarioIdValido = usuarios[0].id_usuario
 
+      // CORREÇÃO DA COLUNA: Alterado com sucesso de 'datapretimo' para 'dataemprestimo'
       const { data: novoEmprestimo, error: erroEmprestimo } = await supabase
         .from("emprestimo")
         .insert([
           {
             ra_aluno: Number(ra_aluno),
-            id_usuario: usuarioIdValido, // Usa o ID dinâmico e seguro do banco                 
-            dataemprestimo: dataHoje,      
+            id_usuario: usuarioIdValido,                  
+            dataemprestimo: dataHoje, 
             dataprevista: data_devolucao_prevista.split("T")[0]
           }
         ])
@@ -522,7 +522,7 @@ app.get("/emprestimos-historico", async (req, res) => {
     const { data: emprestimos, error } = await supabase
       .from("emprestimo")
       .select("*")
-      .order("dataemprestimo", { ascending: false }) 
+      .order("id_emprestimo", { ascending: false }) 
 
     if (error) {
       console.error(error)
@@ -576,7 +576,7 @@ app.get("/emprestimos-historico", async (req, res) => {
     res.json(historicoCompleto)
   } catch (error) {
     console.error(error)
-    res.status(500).json({ sucesso: false, mensagem: "Erro interno" })
+    res.status(500).json({ sucesso: false, message: "Erro interno" })
   }
 })
 
@@ -648,83 +648,167 @@ app.put("/emprestimo/:id/devolucao", async (req, res) => {
 })
 
 // ==========================================
-// DASHBOARD - RESOLVIDO SUMIÇO E TRAVAMENTO DE DADOS
+// DASHBOARD - FEED GLOBAL UNIFICADO (DEFINITIVO)
 // ==========================================
 app.get("/dashboard", async (req, res) => {
   try {
     const { data: itens } = await supabase.from("item").select("id_item")
     const { data: alunos } = await supabase.from("aluno").select("ra_aluno")
     const { data: emprestimos } = await supabase.from("emprestimo").select("datadevolucao")
-    const { data: todasEntradasCount } = await supabase.from("mov_entrada").select("id_entrada")
-    const { data: todasSaidasCount } = await supabase.from("mov_saida").select("id_saida")
+    
+    const { data: todasEntradasCount } = await supabase.from("mov_entrada").select("*")
+    const { data: todasSaidasCount } = await supabase.from("mov_saida").select("*")
 
     const ativos = emprestimos?.filter(e => !e.datadevolucao || e.datadevolucao.trim() === "").length || 0
 
-    const { data: ultimasEntradas } = await supabase
+    const feedGlobal = []
+
+    // 1. BUSCAR ENTRADAS (AQUISIÇÕES)
+    const { data: entradas, error: erroEntrada } = await supabase
       .from("mov_entrada")
-      .select("id_entrada, id_item, quantidade, data")
-      .order("id_entrada", { ascending: false })
-      .limit(5)
+      .select("*")
 
-    const { data: ultimasSaidas } = await supabase
-      .from("mov_saida")
-      .select("id_saida, id_item, quantidade, data")
-      .order("id_saida", { ascending: false })
-      .limit(5)
+    if (erroEntrada) console.error("Erro ao ler mov_entrada:", erroEntrada)
 
-    const todasMovimentacoes = []
-
-    if (ultimasEntradas && ultimasEntradas.length > 0) {
-      for (const ent of ultimasEntradas) {
+    if (entradas && entradas.length > 0) {
+      for (const ent of entradas) {
         const { data: item } = await supabase.from("item").select("nome").eq("id_item", ent.id_item).maybeSingle()
-        todasMovimentacoes.push({
-          id: `ent-${ent.id_entrada}`,
+        const nomeItem = item ? item.nome : "Item Desconhecido"
+        
+        const tipoFinal = ent.quantidade === 1 ? "Aquisição / Entrada" : "Aquisição"
+
+        feedGlobal.push({
+          id: `ent-${ent.id_entrada || Math.random()}`,
           id_movimentacao: ent.id_entrada,
-          item: item ? item.nome : "Item Desconhecido",
-          nome_item: item ? item.nome : "Item Desconhecido",
-          tipo: "Entrada",
-          tipo_movimentacao: "Entrada",
-          quantidade: ent.quantidade,
-          data: ent.data,
-          datasaida: ent.data,
-          data_movimentacao: ent.data
+          item: nomeItem,
+          nome_item: nomeItem,
+          itemObj: { nome: nomeItem },
+          tipo: tipoFinal,
+          tipo_movimentacao: tipoFinal,
+          quantidade: ent.quantidade || 1,
+          data: ent.data || ent.datacadastro || ent.created_at || "2026-05-29",
+          data_movimentacao: ent.data || ent.datacadastro || ent.created_at || "2026-05-29",
+          aluno: { nome: "Estoque Central" },
+          nome_aluno: "Estoque Central",
+          ra_aluno: "-"
         })
       }
     }
 
-    if (ultimasSaidas && ultimasSaidas.length > 0) {
-      for (const sai of ultimasSaidas) {
+    // 2. BUSCAR SAÍDAS (DESCARTES)
+    const { data: saidas, error: erroSaida } = await supabase
+      .from("mov_saida")
+      .select("*")
+
+    if (erroSaida) console.error("Erro ao ler mov_saida:", erroSaida)
+
+    if (saidas && saidas.length > 0) {
+      for (const sai of saidas) {
         const { data: item } = await supabase.from("item").select("nome").eq("id_item", sai.id_item).maybeSingle()
-        todasMovimentacoes.push({
-          id: `sai-${sai.id_saida}`,
+        const nomeItem = item ? item.nome : "Item Desconhecido"
+
+        feedGlobal.push({
+          id: `sai-${sai.id_saida || Math.random()}`,
           id_movimentacao: sai.id_saida,
-          item: item ? item.nome : "Item Desconhecido",
-          nome_item: item ? item.nome : "Item Desconhecido",
-          tipo: "Saída",
-          tipo_movimentacao: "Saída",
-          quantidade: sai.quantidade,
-          data: sai.data,
-          datasaida: sai.data,
-          data_movimentacao: sai.data
+          item: nomeItem,
+          nome_item: nomeItem,
+          itemObj: { nome: nomeItem },
+          tipo: "Descarte",
+          tipo_movimentacao: "Descarte",
+          quantidade: sai.quantidade || 1,
+          data: sai.data || sai.created_at || "2026-05-29",
+          data_movimentacao: sai.data || sai.created_at || "2026-05-29",
+          aluno: { nome: "Descarte / Baixa" },
+          nome_aluno: "Descarte / Baixa",
+          ra_aluno: "-"
         })
       }
     }
 
-    const listaFinal = todasMovimentacoes
-      .sort((a, b) => new Date(b.data) - new Date(a.data))
-      .slice(0, 5)
+    // 3. BUSCAR EMPRÉSTIMOS E DEVOLUÇÕES REAIS
+    const { data: ultimosEmprestimos } = await supabase
+      .from("emprestimo")
+      .select("*")
+      .order("id_emprestimo", { ascending: false })
+      .limit(20)
+
+    if (ultimosEmprestimos) {
+      for (const emp of ultimosEmprestimos) {
+        let alunoObj = { nome: "Não Identificado" }
+        let itensVinculados = []
+
+        if (emp.ra_aluno) {
+          const { data: alunoData } = await supabase.from("aluno").select("nome").eq("ra_aluno", emp.ra_aluno).maybeSingle()
+          if (alunoData) alunoObj = alunoData
+        }
+
+        const { data: relacoes } = await supabase.from("emprestimo_item").select("id_item").eq("id_emprestimo", emp.id_emprestimo)
+        if (relacoes) {
+          for (const rel of relacoes) {
+            const { data: itemData } = await supabase.from("item").select("nome").eq("id_item", rel.id_item).maybeSingle()
+            if (itemData) itensVinculados.push(itemData.nome)
+          }
+        }
+        const nomeDoItem = itensVinculados.length > 0 ? itensVinculados.join(", ") : "Item Desconhecido"
+
+        // Tolerância de leitura robusta para aceitar tanto dataemprestimo quanto datapretimo
+        const dataOriginalEmp = emp.dataemprestimo || emp.datapretimo || "2026-05-29"
+
+        // Registro do Empréstimo
+        feedGlobal.push({
+          id: `emp-${emp.id_emprestimo}`,
+          id_movimentacao: emp.id_emprestimo,
+          item: nomeDoItem,
+          nome_item: nomeDoItem,
+          itemObj: { nome: nomeDoItem },
+          tipo: "Empréstimo",
+          tipo_movimentacao: "Empréstimo",
+          quantidade: 1,
+          data: dataOriginalEmp,
+          data_movimentacao: dataOriginalEmp,
+          aluno: alunoObj,
+          nome_aluno: alunoObj.nome,
+          ra_aluno: emp.ra_aluno
+        })
+
+        // Registro da Devolução se houver data gravada
+        if (emp.datadevolucao && emp.datadevolucao.trim() !== "") {
+          feedGlobal.push({
+            id: `dev-${emp.id_emprestimo}`,
+            id_movimentacao: emp.id_emprestimo,
+            item: nomeDoItem,
+            nome_item: nomeDoItem,
+            itemObj: { nome: nomeDoItem },
+            tipo: "Devolução",
+            tipo_movimentacao: "Devolução",
+            quantidade: 1,
+            data: emp.datadevolucao,
+            data_movimentacao: emp.datadevolucao,
+            aluno: alunoObj,
+            nome_aluno: alunoObj.nome,
+            ra_aluno: emp.ra_aluno
+          })
+        }
+      }
+    }
+
+    const listaFinalDashboard = feedGlobal
+      .sort((a, b) => normalizarDataParaOrdenacao(b.data) - normalizarDataParaOrdenacao(a.data))
+      .slice(0, 15) 
+
+    const totalCalculadoMov = (todasEntradasCount?.length || 0) + (todasSaidasCount?.length || 0)
 
     res.json({
       totalItens: itens?.length || 0,
       totalAlunos: alunos?.length || 0,
       totalEmprestimos: ativos,
-      totalMovimentacoes: (todasEntradasCount?.length || 0) + (todasSaidasCount?.length || 0),
-      ultimasMovimentacoes: listaFinal,
-      movimentacoes: listaFinal,
-      historico: listaFinal
+      totalMovimentacoes: totalCalculadoMov > 0 ? totalCalculadoMov : feedGlobal.length,
+      ultimasMovimentacoes: listaFinalDashboard,
+      movimentacoes: listaFinalDashboard,
+      historico: listaFinalDashboard
     })
   } catch (error) {
-    console.error(error)
+    console.error("Erro interno no dashboard:", error)
     res.status(500).json({ sucesso: false, mensagem: "Erro interno no dashboard" })
   }
 })
