@@ -6,6 +6,10 @@ function Movimentacao() {
   const [historico, setHistorico] = useState([])
   const [erroApi, setErroApi] = useState(null)
 
+  // 🌟 ESTADOS PARA GERENCIAR OS AVISOS VISUAIS NA TELA
+  const [mensagemSucesso, setMensagemSucesso] = useState("")
+  const [mensagemErro, setMensagemErro] = useState("")
+
   // Campos do Formulário
   const [idItem, setIdItem] = useState("")
   const [tipoMov, setTipoMov] = useState("Aquisição")
@@ -25,6 +29,9 @@ function Movimentacao() {
   const [emailAluno, setEmailAluno] = useState("")
   const [isNovoAluno, setIsNovoAluno] = useState(false)
 
+  // 🌟 DEFINIÇÃO DA URL DA API (Lê da Vercel ou usa o localhost)
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
+
   useEffect(() => {
     carregarDados()
   }, [])
@@ -35,10 +42,10 @@ function Movimentacao() {
       const token = localStorage.getItem("token")
       const config = { headers: { Authorization: `Bearer ${token}` } }
 
-      const resItens = await axios.get("http://localhost:3000/item", config)
+      const resItens = await axios.get(`${API_URL}/item`, config)
       setItens(resItens.data || [])
 
-      const resHist = await axios.get("http://localhost:3000/emprestimos-historico", config)
+      const resHist = await axios.get(`${API_URL}/emprestimos-historico`, config)
       setHistorico(resHist.data || [])
     } catch (err) {
       setErroApi(err.response?.data?.mensagem || err.message)
@@ -57,17 +64,21 @@ function Movimentacao() {
       const token = localStorage.getItem("token")
       const config = { headers: { Authorization: `Bearer ${token}` } }
 
-      const res = await axios.get(`http://localhost:3000/aluno/ra/${ra}`, config)
+      const res = await axios.get(`${API_URL}/aluno/ra/${ra}`, config)
       if (res.data) {
         setNomeAluno(res.data.nome)
         setTelefoneAluno(res.data.telefone || "")
         setEmailAluno(res.data.email || "")
         setIsNovoAluno(false)
+        setMensagemSucesso(`Aluno [${res.data.nome}] localizado no sistema!`)
+        setMensagemErro("")
       } else {
         setNomeAluno("")
         setTelefoneAluno("")
         setEmailAluno("")
         setIsNovoAluno(true)
+        setMensagemSucesso("RA não cadastrado. Preencha os campos abaixo para registrar este aluno.")
+        setMensagemErro("")
       }
     } catch (err) {
       console.log("Erro ao validar RA", err)
@@ -75,7 +86,13 @@ function Movimentacao() {
   }
 
   function adicionarNaSacola() {
-    if (!idItem) return alert("Selecione um material primeiro!")
+    setMensagemSucesso("")
+    setMensagemErro("")
+
+    if (!idItem) {
+      setMensagemErro("Selecione um material primeiro antes de adicionar à sacola!")
+      return
+    }
 
     const itemSelecionado = itens.find(i => String(i.id_item) === String(idItem) || String(i.id) === String(idItem))
     if (!itemSelecionado) return
@@ -84,38 +101,56 @@ function Movimentacao() {
 
     const jaExiste = sacola.some(s => String(s.id_item) === String(idReal))
     if (jaExiste) {
-      alert(`O item "${itemSelecionado.nome}" já está na sacola! Só é permitido 1 unidade por tipo.`)
+      setMensagemErro(`O item "${itemSelecionado.nome}" já está na sacola! Só é permitido 1 unidade por tipo.`)
       return
     }
 
     setSacola([...sacola, { id_item: idReal, nome: itemSelecionado.nome }])
     setIdItem("") 
+    setMensagemSucesso(`"${itemSelecionado.nome}" adicionado à sacola!`)
   }
 
   function removerDaSacola(id) {
     setSacola(sacola.filter(s => String(s.id_item) !== String(id)))
+    setMensagemSucesso("Item removido da sacola.")
   }
 
   async function salvarMovimentacao(e) {
     e.preventDefault()
+    setMensagemSucesso("")
+    setMensagemErro("")
 
     if (tipoMov === "Empréstimo") {
       if (!raAluno || !nomeAluno) {
-        alert("Por favor, preencha o RA e o Nome do aluno.")
+        setMensagemErro("Por favor, preencha o RA e o Nome do aluno.")
         return
       }
       if (sacola.length === 0) {
-        alert("Adicione pelo menos 1 item na sacola antes de salvar o empréstimo.")
+        setMensagemErro("Adicione pelo menos 1 item na sacola antes de salvar o empréstimo.")
         return
       }
       if (!dataDevPrevista) {
-        alert("Por favor, selecione uma data de devolução prevista.")
+        setMensagemErro("Por favor, selecione uma data de devolução prevista.")
         return
       }
     } else {
       if (!idItem || !quantidade) {
-        alert("Selecione o material e defina a quantidade.")
+        setMensagemErro("Selecione o material e defina a quantidade.")
         return
+      }
+      
+      // Validação rápida no Front-end para o Descarte
+      if (tipoMov === "Descarte") {
+        const itemSelecionado = itens.find(i => String(i.id_item) === String(idItem) || String(i.id) === String(idItem))
+        const qtdDisponivel = itemSelecionado?.quantidade_disponivel ?? itemSelecionado?.quantidade_total ?? 0
+        if (qtdDisponivel <= 0) {
+          setMensagemErro(`Não é possível descartar. O item "${itemSelecionado?.nome}" já está com estoque zerado!`)
+          return
+        }
+        if (Number(quantidade) > qtdDisponivel) {
+          setMensagemErro(`Quantidade de descarte (${quantidade}) é maior do que o estoque disponível (${qtdDisponivel}).`)
+          return
+        }
       }
     }
 
@@ -128,15 +163,21 @@ function Movimentacao() {
       data_devolucao_prevista: tipoMov === "Empréstimo" ? dataDevPrevista : null,
       itens: tipoMov === "Empréstimo" ? sacola : null,
       id_item: tipoMov !== "Empréstimo" ? idItem : null,
-      quantidade: tipoMov !== "Empréstimo" ? quantity => quantidade : null
+      quantidade: tipoMov !== "Empréstimo" ? quantidade : null
     }
 
     try {
       const token = localStorage.getItem("token")
       const config = { headers: { Authorization: `Bearer ${token}` } }
 
-      const res = await axios.post("http://localhost:3000/movimentacao", payload, config)
-      alert(res.data.mensagem || "Movimentação salva com sucesso!")
+      const res = await axios.post(`${API_URL}/movimentacao`, payload, config)
+      
+      // Mensagem customizada dependendo da operação executada
+      if (tipoMov === "Empréstimo") {
+        setMensagemSucesso(`Empréstimo realizado com sucesso para o aluno ${nomeAluno}!`)
+      } else {
+        setMensagemSucesso(res.data.mensagem || "Movimentação registrada com sucesso!")
+      }
       
       setIdItem("")
       setQuantidade("1")
@@ -150,13 +191,16 @@ function Movimentacao() {
       
       carregarDados()
     } catch (error) {
-      alert(error.response?.data?.mensagem || "Ocorreu um erro ao salvar.")
+      setMensagemErro(error.response?.data?.mensagem || "Ocorreu um erro ao salvar a movimentação.")
     }
   }
 
   async function darBaixaDevolucao(idEmprestimo) {
+    setMensagemSucesso("")
+    setMensagemErro("")
+
     if (!idEmprestimo) {
-      alert("Erro: ID do empréstimo não encontrado.")
+      setMensagemErro("Erro: ID do empréstimo não encontrado.")
       return
     }
 
@@ -164,13 +208,13 @@ function Movimentacao() {
       const token = localStorage.getItem("token")
       const config = { headers: { Authorization: `Bearer ${token}` } }
 
-      const res = await axios.put(`http://localhost:3000/emprestimo/${idEmprestimo}/devolucao`, {}, config)
+      const res = await axios.put(`${API_URL}/emprestimo/${idEmprestimo}/devolucao`, {}, config)
       
-      alert(res.data.mensagem || "Devolução concluída com sucesso!")
+      setMensagemSucesso(res.data.mensagem || "Devolução concluída! O material voltou ao estoque.")
       carregarDados()
     } catch (error) {
       console.error("Erro detalhado na devolução:", error)
-      alert(error.response?.data?.mensagem || "Erro ao processar devolução.")
+      setMensagemErro(error.response?.data?.mensagem || "Erro ao processar devolução.")
     }
   }
 
@@ -210,6 +254,20 @@ function Movimentacao() {
         <div className="alert alert-warning small font-monospace mb-4">Aviso: {erroApi}</div>
       )}
 
+      {/* 🌟 EXIBIÇÃO DINÂMICA DE SUCESSO GLOBAL NA TELA */}
+      {mensagemSucesso && (
+        <div className="alert alert-success border-0 shadow-sm mb-4 small" style={{ borderRadius: "8px" }}>
+          ✅ {mensagemSucesso}
+        </div>
+      )}
+
+      {/* 🌟 EXIBIÇÃO DINÂMICA DE ERROS GLOBAL NA TELA */}
+      {mensagemErro && (
+        <div className="alert alert-danger border-0 shadow-sm mb-4 small" style={{ borderRadius: "8px" }}>
+          ❌ {mensagemErro}
+        </div>
+      )}
+
       <div className="row g-4 align-items-start">
         {/* FORMULÁRIO */}
         <div className="col-lg-5">
@@ -220,7 +278,7 @@ function Movimentacao() {
             <form onSubmit={salvarMovimentacao}>
               <div className="mb-3">
                 <label style={estiloLabel}>Tipo de Movimentação</label>
-                <select className="form-select" style={estiloInput} value={tipoMov} onChange={(e) => { setTipoMov(e.target.value); setSacola([]); }}>
+                <select className="form-select" style={estiloInput} value={tipoMov} onChange={(e) => { setTipoMov(e.target.value); setSacola([]); setMensagemSucesso(""); setMensagemErro(""); }}>
                   <option value="Aquisição">Aquisição</option>
                   <option value="Doação">Doação</option>
                   <option value="Descarte">Descarte</option>
@@ -316,7 +374,7 @@ function Movimentacao() {
                   {isNovoAluno && (
                     <>
                       <div className="small fw-semibold mb-2" style={{ color: "#2563eb", fontSize: "12px" }}>
-                        Novo cadastro! Preencha as informações adicionais:
+                        RA não encontrado! Insira os dados para cadastrá-lo ao salvar:
                       </div>
                       <div className="mb-2.5">
                         <label style={estiloLabel}>Telefone</label>
@@ -355,7 +413,7 @@ function Movimentacao() {
           </div>
         </div>
 
-        {/* 🌟 HISTÓRICO COM ROLAGEM INTERNA CORRIGIDO 🌟 */}
+        {/* HISTÓRICO */}
         <div className="col-lg-7">
           <div className="card border-0 shadow-sm p-4" style={{ borderRadius: "12px", backgroundColor: "#ffffff" }}>
             <div className="d-flex justify-content-between align-items-center mb-4">
@@ -365,10 +423,8 @@ function Movimentacao() {
               </div>
             </div>
 
-            {/* Mudança aqui: Adicionado max-height e overflow-y para fazer rolar internamente */}
             <div className="table-responsive" style={{ borderRadius: "8px", overflowX: "auto", overflowY: "auto", maxHeight: "530px" }}>
               <table className="table table-hover align-middle mb-0">
-                {/* Deixa o cabeçalho da tabela colado no topo enquanto você rola */}
                 <thead style={{ position: "sticky", top: 0, zIndex: 1 }}>
                   <tr>
                     <th style={{ backgroundColor: "#f8fafc", color: "#64748b", fontSize: "11px", fontWeight: "600", textTransform: "uppercase", letterSpacing: "0.5px", padding: "12px 16px", borderBottom: "2px solid #e2e8f0" }}>Material</th>
@@ -386,7 +442,7 @@ function Movimentacao() {
                     historico.map((e) => {
                       const idEmprestimoReal = e.id || e.id_emprestimo;
                       const dataDevolvidaReal = e.datadevolucao || e.data_devolucao_real;
-                      const dataDoEmprestimo = e.dataemprestimo || e.datapretimo || e.data_emprestimo;
+                      const dataDoEmprestimo = e.dataSample || e.dataemprestimo || e.datapretimo || e.data_emprestimo;
                       
                       const nomeDoMaterial = 
                         e.item?.nome || 

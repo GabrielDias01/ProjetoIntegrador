@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import axios from "axios"
+import { Toaster } from "react-hot-toast"
 
 import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
@@ -93,9 +94,22 @@ function Materiais() {
 
   return (
     <div style={{ backgroundColor: "#f8fafc", minHeight: "100vh" }}>
+      {/* Configuração centralizada para os alertas durarem 4 segundos na tela */}
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#ffffff',
+            color: '#1e293b',
+            fontSize: '14px',
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+          }
+        }} 
+      />
+      
       <Navbar />
 
-      {/* Container Principal para alinhar o conteúdo */}
       <div className="container-fluid px-4">
         
         {/* Header Superior Limpo */}
@@ -142,7 +156,7 @@ function Materiais() {
             />
           </div>
 
-          {/* 🌟 CONTAINER COM ROLAGEM INTERNA 🌟 */}
+          {/* CONTAINER COM ROLAGEM INTERNA */}
           <div 
             style={{ 
               borderRadius: "8px", 
@@ -162,7 +176,6 @@ function Materiais() {
         </div>
       </div>
 
-      {/* Formulário / Modal Lateral ou Centralizado */}
       <ModalItem
         buscarItens={buscarItens}
         itemParaEditar={itemParaEditar}

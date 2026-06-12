@@ -9,6 +9,10 @@ function Cadastro() {
   const [senha, setSenha] = useState("")
   const [perfil, setPerfil] = useState("SUPERVISORA")
 
+  // 🌟 ESTADOS PARA GERENCIAR OS AVISOS NA TELA
+  const [mensagemSucesso, setMensagemSucesso] = useState("")
+  const [mensagemErro, setMensagemErro] = useState("")
+
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -27,26 +31,38 @@ function Cadastro() {
   async function fazerCadastro(e) {
     e.preventDefault()
 
+    // Limpa os avisos anteriores ao tentar cadastrar de novo
+    setMensagemSucesso("")
+    setMensagemErro("")
+
     if (!usuario.trim() || !senha.trim()) {
-      alert("Por favor, preencha todos os campos.")
+      setMensagemErro("Por favor, preencha todos os campos do formulário.")
       return
     }
 
     try {
+      // 🌟 URL DINÂMICA: Usa a variável da Vercel ou o localhost caso dê erro
+      const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000"
+
       // Envia o perfil transformado em UPPERCASE para a API
-      await axios.post("http://localhost:3000/usuario", {
+      await axios.post(`${API_URL}/usuario`, {
         usuario,
         senha,
         perfil: perfil.toUpperCase()
       })
 
-      alert(`Usuário [${usuario}] cadastrado com sucesso como ${perfil}!`)
+      // 🌟 Define o aviso de sucesso na tela
+      setMensagemSucesso(`Usuário [${usuario}] cadastrado com sucesso como ${perfil}!`)
+      
+      // Reseta os campos do formulário
       setUsuario("")
       setSenha("")
       setPerfil("SUPERVISORA")
     } catch (error) {
       console.log(error)
-      alert(error.response?.data?.mensagem || "Erro ao cadastrar usuário")
+      // 🌟 Captura o erro exato vindo do backend ou uma mensagem padrão se o servidor estiver fora
+      const textoErro = error.response?.data?.mensagem || "Erro de conexão: Não foi possível alcançar o servidor."
+      setMensagemErro(textoErro)
     }
   }
 
@@ -73,6 +89,20 @@ function Cadastro() {
           <h4 className="fw-bold text-dark mb-1">Novo Usuário</h4>
           <p className="text-muted small">Preencha as credenciais para liberar o acesso</p>
         </div>
+
+        {/* 🌟 BANNER DE AVISO DE SUCESSO */}
+        {mensagemSucesso && (
+          <div className="alert alert-success border-0 shadow-sm mb-3 small" style={{ borderRadius: "6px" }}>
+            ✅ {mensagemSucesso}
+          </div>
+        )}
+
+        {/* 🌟 BANNER DE AVISO DE ERRO */}
+        {mensagemErro && (
+          <div className="alert alert-danger border-0 shadow-sm mb-3 small" style={{ borderRadius: "6px" }}>
+            ❌ {mensagemErro}
+          </div>
+        )}
         
         <form onSubmit={fazerCadastro}>
           <div className="mb-3">
@@ -114,7 +144,7 @@ function Cadastro() {
 
           <button
             type="submit"
-            className="btn text-white px-4 fw-semibold"
+            className="btn text-white px-4 fw-semibold w-100" // Coloquei w-100 para o botão ocupar a largura total e ficar mais elegante
             style={{
               height: "40px",
               borderRadius: "6px",

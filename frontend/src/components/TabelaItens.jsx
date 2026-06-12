@@ -3,8 +3,15 @@ import toast from "react-hot-toast"
 
 function TabelaItens({ itens, buscarItens, iniciarEdicao }) {
 
-  async function handleExcluir(id) {
-    if (!window.confirm("Tem certeza que deseja remover este item definitivamente do acervo?")) {
+  async function handleExcluir(item) {
+    const id = item.id_item || item.id;
+
+    if (!id) {
+      toast.error("Não foi possível identificar o ID deste material.")
+      return
+    }
+
+    if (!window.confirm(`Tem certeza que deseja remover "${item.nome}" definitivamente do acervo?`)) {
       return
     }
 
@@ -17,21 +24,25 @@ function TabelaItens({ itens, buscarItens, iniciarEdicao }) {
       }
 
       const res = await axios.delete(`http://localhost:3000/item/${id}`, config)
+      
       toast.success(res.data?.mensagem || "Item excluído com sucesso!")
       buscarItens()
 
     } catch (error) {
       console.error("Erro ao excluir item:", error)
+      
+      let msgCustomizada = "Não é possível excluir: Este material possui empréstimos ativos ou históricos de movimentação vinculados."
+      
       if (error.response && error.response.data && error.response.data.mensagem) {
-        toast.error(`Não foi possível excluir: ${error.response.data.mensagem}`)
-      } else {
-        toast.error("Erro interno ao tentar remover o item.")
+        msgCustomizada = `Não foi possível excluir: ${error.response.data.mensagem}`
       }
+
+      toast.error(msgCustomizada)
     }
   }
 
   // ==========================================
-  // DICCIONÁRIOS DE TRADUÇÃO (BANCO -> INTERFACE)
+  // DICIONÁRIOS DE TRADUÇÃO (BANCO -> INTERFACE)
   // ==========================================
   const estágiosCognitivos = {
     1: "Sensório-Motor",
@@ -92,7 +103,7 @@ function TabelaItens({ itens, buscarItens, iniciarEdicao }) {
             <th style={estiloCabecalho} className="text-start">Estágio / Área de Desenv.</th>
             <th style={estiloCabecalho} className="text-center">Qtd. Total</th>
             <th style={estiloCabecalho} className="text-center">Disponível</th>
-            <th style={estiloCabecalho} className="text-end" style={{ ...estiloCabecalho, paddingRight: "24px" }}>Ações</th>
+            <th style={{ ...estiloCabecalho, paddingRight: "24px" }} className="text-end">Ações</th>
           </tr>
         </thead>
         <tbody>
@@ -109,23 +120,19 @@ function TabelaItens({ itens, buscarItens, iniciarEdicao }) {
                 ? { backgroundColor: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }
                 : { backgroundColor: "#fef2f2", color: "#991b1b", border: "1px solid #fee2e2" };
 
-              // Identifica o valor numérico vindo do backend
               const valorBancoCognitivo = item.estagio_cognitivo || item.estagiocognitivo;
               const valorBancoArea = item.area_desenvolvimento || item.areadesenvolvimento;
 
-              // Faz a tradução baseada no tipo de item (1 = Jogo, 2 = Brinquedo)
               const infoDesenvolvimento = item.tipo === 1 
                 ? (estágiosCognitivos[valorBancoCognitivo] || "Não informado")
                 : (areasDesenvolvimento[valorBancoArea] || "Não informado");
 
               return (
-                <tr key={item.id_item} style={estiloLinha}>
-                  {/* Nome do Material */}
-                  <td style={estiloCelula} className="fw-semibold text-start" style={{ ...estiloCelula, color: "#1e293b" }}>
+                <tr key={item.id_item || item.id} style={estiloLinha}>
+                  <td style={{ ...estiloCelula, color: "#1e293b" }} className="fw-semibold text-start">
                     {item.nome}
                   </td>
                   
-                  {/* Categoria */}
                   <td style={estiloCelula} className="text-start">
                     <span 
                       style={{ 
@@ -144,22 +151,18 @@ function TabelaItens({ itens, buscarItens, iniciarEdicao }) {
                     </span>
                   </td>
                   
-                  {/* Faixa Etária */}
                   <td style={estiloCelula} className="text-start text-muted">
                     {item.faixaetaria || "Livre"}
                   </td>
 
-                  {/* Estágio Cognitivo ou Área de Desenvolvimento Traduzido */}
                   <td style={estiloCelula} className="text-start text-muted fw-medium">
                     {infoDesenvolvimento}
                   </td>
                   
-                  {/* Quantidade Total */}
-                  <td style={estiloCelula} className="text-center fw-medium" style={{ ...estiloCelula, color: "#475569" }}>
+                  <td style={{ ...estiloCelula, color: "#475569" }} className="text-center fw-medium">
                     {item.quantidade_total}
                   </td>
                   
-                  {/* Quantidade Disponível (Apenas o número limpo) */}
                   <td style={estiloCelula} className="text-center">
                     <span 
                       className="fw-semibold"
@@ -176,8 +179,7 @@ function TabelaItens({ itens, buscarItens, iniciarEdicao }) {
                     </span>
                   </td>
                   
-                  {/* Ações por Extenso Sem Emojis */}
-                  <td style={estiloCelula} className="text-end" style={{ ...estiloCelula, paddingRight: "24px" }}>
+                  <td style={{ ...estiloCelula, paddingRight: "24px" }} className="text-end">
                     <div className="d-flex justify-content-end gap-2">
                       <button
                         style={{ ...estiloBotaoTexto, color: "#2563eb" }}
@@ -198,7 +200,7 @@ function TabelaItens({ itens, buscarItens, iniciarEdicao }) {
                       </button>
                       <button
                         style={{ ...estiloBotaoTexto, color: "#dc2626" }}
-                        onClick={() => handleExcluir(item.id_item)}
+                        onClick={() => handleExcluir(item)}
                         title="Excluir do acervo"
                         onMouseEnter={(e) => {
                           e.currentTarget.style.borderColor = "#dc2626";
