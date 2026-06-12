@@ -1,109 +1,221 @@
 import axios from "axios"
-import { 
-  TIPO_ITEM, 
-  TIPOS_JOGOS, 
-  TIPOS_BRINQUEDOS, 
-  ESTAGIO_COGNITIVO, 
-  AREA_DESENVOLVIMENTO 
-} from "../utils/enums"
+import toast from "react-hot-toast"
 
 function TabelaItens({ itens, buscarItens, iniciarEdicao }) {
 
-  async function deletarItem(id) {
-    if (window.confirm("Tem certeza que deseja excluir este material permanentemente?")) {
-      try {
-        await axios.delete(`http://localhost:3000/item/${id}`)
-        alert("Material excluído com sucesso!")
-        buscarItens()
-      } catch (error) {
-        console.error(error)
-        alert("Erro ao excluir o material.")
+  async function handleExcluir(id) {
+    if (!window.confirm("Tem certeza que deseja remover este item definitivamente do acervo?")) {
+      return
+    }
+
+    try {
+      const token = localStorage.getItem("token")
+      const config = {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      }
+
+      const res = await axios.delete(`http://localhost:3000/item/${id}`, config)
+      toast.success(res.data?.mensagem || "Item excluído com sucesso!")
+      buscarItens()
+
+    } catch (error) {
+      console.error("Erro ao excluir item:", error)
+      if (error.response && error.response.data && error.response.data.mensagem) {
+        toast.error(`Não foi possível excluir: ${error.response.data.mensagem}`)
+      } else {
+        toast.error("Erro interno ao tentar remover o item.")
       }
     }
   }
 
+  // ==========================================
+  // DICCIONÁRIOS DE TRADUÇÃO (BANCO -> INTERFACE)
+  // ==========================================
+  const estágiosCognitivos = {
+    1: "Sensório-Motor",
+    2: "Pré-Operatório",
+    3: "Operatório-Concreto",
+    4: "Operatório-Formal"
+  }
+
+  const areasDesenvolvimento = {
+    1: "Social",
+    2: "Emocional"
+  }
+
+  // ==========================================
+  // 🎨 ESTILOS PREMIUM E COMPACTOS (ESTILO DASHBOARD)
+  // ==========================================
+  const estiloCabecalho = { 
+    backgroundColor: "#ffffff", 
+    color: "#64748b", 
+    fontSize: "11px", 
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    padding: "12px 16px",
+    borderBottom: "2px solid #f1f5f9"
+  }
+
+  const estiloLinha = { 
+    fontSize: "13px", 
+    color: "#334155", 
+    verticalAlign: "middle"
+  }
+
+  const estiloCelula = {
+    padding: "12px 16px",
+    borderBottom: "1px solid #f1f5f9"
+  }
+
+  const estiloBotaoTexto = {
+    padding: "4px 12px",
+    borderRadius: "6px",
+    fontSize: "12px",
+    fontWeight: "500",
+    border: "1px solid #e2e8f0",
+    backgroundColor: "#ffffff",
+    transition: "all 0.2s ease",
+    cursor: "pointer"
+  }
+
   return (
-    <div className="table-responsive">
-      <table className="table table-hover align-middle mb-0">
+    <div className="table-responsive" style={{ borderRadius: "8px", overflow: "hidden" }}>
+      <table className="table table-hover align-middle mb-0" style={{ borderCollapse: "separate", borderSpacing: "0" }}>
         <thead>
           <tr>
-            <th className="text-black fw-bold bg-transparent" style={{ fontSize: "14px", paddingLeft: "16px" }}>Nome</th>
-            <th className="text-black fw-bold bg-transparent" style={{ fontSize: "14px" }}>Categoria</th>
-            <th className="text-black fw-bold bg-transparent" style={{ fontSize: "14px" }}>Classificação / Tipo</th>
-            <th className="text-black fw-bold bg-transparent" style={{ fontSize: "14px" }}>Faixa Etária</th>
-            <th className="text-black fw-bold bg-transparent" style={{ fontSize: "14px" }}>Qtd Total</th>
-            <th className="text-black fw-bold bg-transparent" style={{ fontSize: "14px" }}>Qtd Disp.</th>
-            <th className="text-black fw-bold bg-transparent" style={{ fontSize: "14px" }}>Regra de Desenvolvimento</th>
-            <th className="text-black fw-bold bg-transparent text-end" style={{ fontSize: "14px", paddingRight: "16px" }}>Ações</th>
+            <th style={estiloCabecalho} className="text-start">Nome do Material</th>
+            <th style={estiloCabecalho} className="text-start">Categoria</th>
+            <th style={estiloCabecalho} className="text-start">Faixa Etária</th>
+            <th style={estiloCabecalho} className="text-start">Estágio / Área de Desenv.</th>
+            <th style={estiloCabecalho} className="text-center">Qtd. Total</th>
+            <th style={estiloCabecalho} className="text-center">Disponível</th>
+            <th style={estiloCabecalho} className="text-end" style={{ ...estiloCabecalho, paddingRight: "24px" }}>Ações</th>
           </tr>
         </thead>
         <tbody>
           {itens.length === 0 ? (
             <tr>
-              <td colSpan="8" className="text-center text-muted py-4" style={{ fontSize: "14px" }}>
-                Nenhum material cadastrado no momento.
+              <td colSpan="7" className="text-center py-5 text-muted" style={{ fontSize: "13px", backgroundColor: "#ffffff" }}>
+                Nenhum jogo ou brinquedo encontrado no acervo.
               </td>
             </tr>
           ) : (
-            itens.map((item) => (
-              <tr key={item.id_item}>
-                <td className="text-black fw-semibold" style={{ fontSize: "14px", paddingLeft: "16px" }}>{item.nome}</td>
-                <td>
-                  <span className={`badge ${item.tipo === 1 ? 'bg-primary' : 'bg-success'}`} style={{ fontSize: "12px" }}>
-                    {TIPO_ITEM[item.tipo] || "Não definido"}
-                  </span>
-                </td>
-                <td className="text-black" style={{ fontSize: "14px" }}>
-                  {item.tipo === 1 
-                    ? (TIPOS_JOGOS[item.classificacao_jogo_id] || "—") 
-                    : (TIPOS_BRINQUEDOS[item.classificacao_brinquedo_id] || "—")}
-                </td>
-                <td className="text-black" style={{ fontSize: "14px" }}>{item.faixaetaria || "Livre"}</td>
-                <td className="text-black" style={{ fontSize: "14px" }}>{item.quantidade_total}</td>
-                <td className="text-black" style={{ fontSize: "14px" }}>{item.quantidade_disponivel}</td>
-                <td className="text-black" style={{ fontSize: "13px" }}>
-                  <span style={{ color: "#000000", opacity: "0.8" }}>
-                    {item.tipo === 1 
-                      ? `Estágio: ${ESTAGIO_COGNITIVO[item.estagiocognitivo] || "—"}` 
-                      : `Área: ${AREA_DESENVOLVIMENTO[item.areadesenvolvimento] || "—"}`}
-                  </span>
-                </td>
-                <td className="text-end" style={{ paddingRight: "16px" }}>
-                  <button 
-                    className="btn me-2 fw-semibold"
-                    data-bs-toggle="modal" 
-                    data-bs-target="#modalItem"
-                    onClick={() => iniciarEdicao(item)}
-                    style={{
-                      backgroundColor: "transparent",
-                      color: "#1d4ed8",
-                      border: "1px solid #1d4ed8",
-                      fontSize: "13px",
-                      height: "32px",
-                      padding: "0 12px",
-                      borderRadius: "4px"
-                    }}
-                  >
-                    Editar
-                  </button>
-                  <button 
-                    className="btn fw-semibold"
-                    onClick={() => deletarItem(item.id_item)}
-                    style={{
-                      backgroundColor: "transparent",
-                      color: "#64748b",
-                      border: "1px solid #cbd5e1",
-                      fontSize: "13px",
-                      height: "32px",
-                      padding: "0 12px",
-                      borderRadius: "4px"
-                    }}
-                  >
-                    Deletar
-                  </button>
-                </td>
-              </tr>
-            ))
+            itens.map((item) => {
+              const temEstoque = Number(item.quantidade_disponivel) > 0;
+              const estiloDisponivel = temEstoque
+                ? { backgroundColor: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0" }
+                : { backgroundColor: "#fef2f2", color: "#991b1b", border: "1px solid #fee2e2" };
+
+              // Identifica o valor numérico vindo do backend
+              const valorBancoCognitivo = item.estagio_cognitivo || item.estagiocognitivo;
+              const valorBancoArea = item.area_desenvolvimento || item.areadesenvolvimento;
+
+              // Faz a tradução baseada no tipo de item (1 = Jogo, 2 = Brinquedo)
+              const infoDesenvolvimento = item.tipo === 1 
+                ? (estágiosCognitivos[valorBancoCognitivo] || "Não informado")
+                : (areasDesenvolvimento[valorBancoArea] || "Não informado");
+
+              return (
+                <tr key={item.id_item} style={estiloLinha}>
+                  {/* Nome do Material */}
+                  <td style={estiloCelula} className="fw-semibold text-start" style={{ ...estiloCelula, color: "#1e293b" }}>
+                    {item.nome}
+                  </td>
+                  
+                  {/* Categoria */}
+                  <td style={estiloCelula} className="text-start">
+                    <span 
+                      style={{ 
+                        fontSize: "11px", 
+                        fontWeight: "600",
+                        padding: "4px 8px",
+                        borderRadius: "6px",
+                        backgroundColor: item.tipo === 1 ? "#eff6ff" : "#f5f3ff", 
+                        color: item.tipo === 1 ? "#2563eb" : "#5b21b6",
+                        border: item.tipo === 1 ? "1px solid #bfdbfe" : "1px solid #ddd6fe",
+                        display: "inline-block",
+                        lineHeight: "1"
+                      }}
+                    >
+                      {item.tipo === 1 ? "Jogo" : "Brinquedo"}
+                    </span>
+                  </td>
+                  
+                  {/* Faixa Etária */}
+                  <td style={estiloCelula} className="text-start text-muted">
+                    {item.faixaetaria || "Livre"}
+                  </td>
+
+                  {/* Estágio Cognitivo ou Área de Desenvolvimento Traduzido */}
+                  <td style={estiloCelula} className="text-start text-muted fw-medium">
+                    {infoDesenvolvimento}
+                  </td>
+                  
+                  {/* Quantidade Total */}
+                  <td style={estiloCelula} className="text-center fw-medium" style={{ ...estiloCelula, color: "#475569" }}>
+                    {item.quantidade_total}
+                  </td>
+                  
+                  {/* Quantidade Disponível (Apenas o número limpo) */}
+                  <td style={estiloCelula} className="text-center">
+                    <span 
+                      className="fw-semibold"
+                      style={{ 
+                        ...estiloDisponivel,
+                        padding: "4px 10px",
+                        borderRadius: "6px",
+                        fontSize: "12px",
+                        display: "inline-block",
+                        lineHeight: "1"
+                      }}
+                    >
+                      {item.quantidade_disponivel}
+                    </span>
+                  </td>
+                  
+                  {/* Ações por Extenso Sem Emojis */}
+                  <td style={estiloCelula} className="text-end" style={{ ...estiloCelula, paddingRight: "24px" }}>
+                    <div className="d-flex justify-content-end gap-2">
+                      <button
+                        style={{ ...estiloBotaoTexto, color: "#2563eb" }}
+                        data-bs-toggle="modal"
+                        data-bs-target="#modalItem"
+                        onClick={() => iniciarEdicao(item)}
+                        title="Editar dados"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = "#2563eb";
+                          e.currentTarget.style.backgroundColor = "#eff6ff";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = "#e2e8f0";
+                          e.currentTarget.style.backgroundColor = "#ffffff";
+                        }}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        style={{ ...estiloBotaoTexto, color: "#dc2626" }}
+                        onClick={() => handleExcluir(item.id_item)}
+                        title="Excluir do acervo"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = "#dc2626";
+                          e.currentTarget.style.backgroundColor = "#fef2f2";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = "#e2e8f0";
+                          e.currentTarget.style.backgroundColor = "#ffffff";
+                        }}
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })
           )}
         </tbody>
       </table>

@@ -2,7 +2,8 @@ import {
   BrowserRouter,
   Routes,
   Route,
-  Outlet
+  Outlet,
+  Navigate // 🛠️ Importado para fazer o redirecionamento automático
 } from "react-router-dom"
 
 import Login from "./pages/Login"
@@ -13,6 +14,16 @@ import Sidebar from "./components/Sidebar"
 import Movimentacao from "./pages/Movimentacao"
 
 function LayoutPrivado() {
+  const token = localStorage.getItem("token")
+
+  // 🔒 TRAVA DE SEGURANÇA GLOBAL: Se não tiver token, chuta para a tela de Login na hora
+  if (!token || token === "undefined" || token.trim() === "") {
+    localStorage.removeItem("token")
+    localStorage.removeItem("usuario")
+    return <Navigate to="/" replace />
+  }
+
+  // Se tiver token, renderiza a estrutura com a Sidebar e a página solicitada
   return (
     <div
       className="d-flex"
@@ -34,11 +45,13 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Rota Pública */}
         <Route
           path="/"
           element={<Login />}
         />
 
+        {/* 🛡️ Todas as rotas aqui dentro herdam a Sidebar e a verificação do Token automática */}
         <Route element={<LayoutPrivado />}>
           <Route
             path="/dashboard"
@@ -54,9 +67,11 @@ function App() {
             path="/cadastro"
             element={<Cadastro />}
           />
+          
           <Route
             path="/movimentacao"
-            element={<Movimentacao />} />
+            element={<Movimentacao />} 
+          />
             
         </Route>
       </Routes>

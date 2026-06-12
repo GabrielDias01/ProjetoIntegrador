@@ -7,9 +7,14 @@ function Sidebar() {
   const usuarioLogado = JSON.parse(localStorage.getItem("usuario")) || {}
   const isAdmin = usuarioLogado.perfil?.toUpperCase() === "ADMIN"
 
-  function fazerLogout() {
+function fazerLogout() {
+    // 1. Apaga absolutamente tudo (Token e dados do Usuário)
+    localStorage.removeItem("token")
     localStorage.removeItem("usuario")
-    navigate("/")
+    localStorage.clear() // Garante uma limpeza profunda no navegador
+
+    // 2. Força o redirecionamento resetando a memória do React
+    window.location.href = "/"
   }
 
   return (

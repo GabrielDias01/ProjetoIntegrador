@@ -17,10 +17,17 @@ function Materiais() {
 
   async function buscarItens() {
     try {
-      const response = await axios.get("http://localhost:3000/item")
+      const token = localStorage.getItem("token")
+      
+      const response = await axios.get("http://localhost:3000/item", {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      })
+      
       setItens(response.data)
     } catch (error) {
-      console.log(error)
+      console.log("Erro ao buscar itens:", error)
     }
   }
 
@@ -36,56 +43,126 @@ function Materiais() {
     item.nome?.toLowerCase().includes(filtro.toLowerCase())
   )
 
+  // ==========================================
+  // 🎨 ESTILOS PREMIUM DO LAYOUT (PADRÃO SAAS/DASHBOARD)
+  // ==========================================
+  const estiloTituloPagina = {
+    color: "#0f172a",
+    fontSize: "24px",
+    letterSpacing: "-0.5px"
+  }
+
+  const estiloSubtitulo = {
+    color: "#64748b",
+    fontSize: "14px"
+  }
+
+  const estiloTituloCard = {
+    color: "#1e293b",
+    fontSize: "16px",
+    letterSpacing: "-0.3px"
+  }
+
+  const estiloLabelFiltro = {
+    color: "#64748b",
+    fontSize: "12px",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px",
+    marginBottom: "6px"
+  }
+
+  const estiloInputFiltro = {
+    height: "40px",
+    borderRadius: "8px",
+    border: "1px solid #e2e8f0",
+    fontSize: "14px",
+    color: "#1e293b",
+    backgroundColor: "#ffffff",
+    transition: "all 0.2s ease"
+  }
+
+  const estiloBotaoAdicionar = {
+    height: "40px",
+    borderRadius: "8px",
+    backgroundColor: "#2563eb", 
+    border: "none",
+    fontSize: "14px",
+    transition: "background-color 0.2s ease"
+  }
+
   return (
-    <div>
+    <div style={{ backgroundColor: "#f8fafc", minHeight: "100vh" }}>
       <Navbar />
 
-      <div className="mb-4 mt-2 text-start">
-        <h2 className="fw-bold text-black mb-1">Materiais</h2>
-        <p style={{ color: "#000000", opacity: "0.7", fontSize: "15px" }}>
-          Gerencie os jogos e brinquedos registrados no sistema.
-        </p>
-      </div>
+      {/* Container Principal para alinhar o conteúdo */}
+      <div className="container-fluid px-4">
+        
+        {/* Header Superior Limpo */}
+        <div className="mb-4 mt-4 text-start px-1">
+          <h2 className="fw-bold mb-1" style={estiloTituloPagina}>Materiais</h2>
+          <p className="mb-0" style={estiloSubtitulo}>
+            Gerencie os jogos e brinquedos registrados na Brinquedoteca.
+          </p>
+        </div>
 
-      <div className="card border-0 shadow-sm p-4 mb-4 text-start" style={{ borderRadius: "8px", backgroundColor: "#ffffff" }}>
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h4 className="fw-bold text-black mb-0">Lista de Materiais</h4>
-          <button
-            className="btn text-white px-4 fw-semibold"
-            data-bs-toggle="modal"
-            data-bs-target="#modalItem"
-            onClick={iniciarCadastro}
-            style={{
-              height: "40px",
-              borderRadius: "6px",
-              backgroundColor: "#1d4ed8",
-              border: "none",
-              fontSize: "14px"
+        {/* Card Principal do Painel */}
+        <div 
+          className="card border-0 shadow-sm p-4 mb-5 text-start" 
+          style={{ borderRadius: "12px", backgroundColor: "#ffffff" }}
+        >
+          {/* Topo do Painel com Botão Alinhado */}
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h4 className="fw-bold mb-0" style={estiloTituloCard}>Lista de Jogos/Brinquedos</h4>
+            <button
+              className="btn text-white px-4 fw-semibold d-inline-flex align-items-center gap-2"
+              data-bs-toggle="modal"
+              data-bs-target="#modalItem"
+              onClick={iniciarCadastro}
+              style={estiloBotaoAdicionar}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#1d4ed8"}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#2563eb"}
+            >
+              <span>+ Adicionar Jogos/Brinquedos</span>
+            </button>
+          </div>
+
+          {/* Campo de Filtro Minimalista */}
+          <div className="mb-4" style={{ maxWidth: "320px" }}>
+            <label style={estiloLabelFiltro}>Filtrar por nome</label>
+            <input
+              type="text"
+              className="form-control px-3"
+              placeholder="Digite para pesquisar na Brinquedoteca..."
+              value={filtro}
+              onChange={(e) => setFiltro(e.target.value)}
+              style={estiloInputFiltro}
+              onFocus={(e) => e.currentTarget.style.borderColor = "#bfdbfe"}
+              onBlur={(e) => e.currentTarget.style.borderColor = "#e2e8f0"}
+            />
+          </div>
+
+          {/* 🌟 CONTAINER COM ROLAGEM INTERNA 🌟 */}
+          <div 
+            style={{ 
+              borderRadius: "8px", 
+              overflowX: "auto", 
+              overflowY: "auto", 
+              maxHeight: "550px",
+              border: "1px solid #e2e8f0" 
             }}
           >
-            + Adicionar Material
-          </button>
+            <TabelaItens 
+              itens={itensFiltrados} 
+              buscarItens={buscarItens} 
+              iniciarEdicao={iniciarEdicao} 
+            />
+          </div>
+          
         </div>
-
-        <div className="mb-4" style={{ maxWidth: "300px" }}>
-          <label className="form-label fw-semibold text-black small">Filtrar por nome</label>
-          <input
-            type="text"
-            className="form-control px-3"
-            placeholder="Digite para pesquisar..."
-            value={filtro}
-            onChange={(e) => setFiltro(e.target.value)}
-            style={{ height: "40px", borderRadius: "6px", fontSize: "14px", color: "#000000" }}
-          />
-        </div>
-
-        <TabelaItens 
-          itens={itensFiltrados} 
-          buscarItens={buscarItens} 
-          iniciarEdicao={iniciarEdicao} 
-        />
       </div>
 
+      {/* Formulário / Modal Lateral ou Centralizado */}
       <ModalItem
         buscarItens={buscarItens}
         itemParaEditar={itemParaEditar}

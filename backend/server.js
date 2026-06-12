@@ -5,6 +5,9 @@ const supabase = require("./services/supabase")
 
 const app = express()
 
+const jwt = require("jsonwebtoken") 
+const autenticarToken = require("./middlewares/auth") 
+
 app.use(cors({
   origin: "*",
   methods: ["GET", "POST", "PUT", "DELETE"],
@@ -34,7 +37,7 @@ const normalizarDataParaOrdenacao = (dataStr) => {
 }
 
 // ==========================================
-// LOGIN
+// LOGIN (Rota Pública)
 // ==========================================
 app.post("/login", async (req, res) => {
   const { usuario, senha } = req.body
@@ -57,7 +60,17 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ sucesso: false, mensagem: "Senha inválida" })
     }
 
-    res.json({ sucesso: true, usuario: usuarioBanco })
+    const token = jwt.sign(
+      { id: usuarioBanco.id_usuario, perfil: usuarioBanco.perfil },
+      process.env.JWT_SECRET || "chave_padrao_temporaria",
+      { expiresIn: "8h" }
+    )
+
+    res.json({ 
+      sucesso: true, 
+      usuario: { id: usuarioBanco.id_usuario, usuario: usuarioBanco.usuario, perfil: usuarioBanco.perfil },
+      token 
+    })
   } catch (error) {
     console.error(error)
     res.status(500).json({ sucesso: false, message: "Erro interno" })
@@ -65,7 +78,7 @@ app.post("/login", async (req, res) => {
 })
 
 // ==========================================
-// CADASTRO USUÁRIO
+// CADASTRO USUÁRIO (Rota Pública)
 // ==========================================
 app.post("/usuario", async (req, res) => {
   const { usuario, senha, perfil } = req.body
@@ -103,9 +116,9 @@ app.post("/usuario", async (req, res) => {
 })
 
 // ==========================================
-// LISTAR ITENS
+// LISTAR ITENS (TRAVADO 🔒)
 // ==========================================
-app.get("/item", async (req, res) => {
+app.get("/item", autenticarToken, async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("item")
@@ -122,9 +135,9 @@ app.get("/item", async (req, res) => {
 })
 
 // ==========================================
-// CADASTRAR ITEM
+// CADASTRAR ITEM (TRAVADO 🔒)
 // ==========================================
-app.post("/item", async (req, res) => {
+app.post("/item", autenticarToken, async (req, res) => {
   try {
     const {
       nome, tipo, faixaetaria, quantidade_total, quantidade_disponivel,
@@ -174,9 +187,9 @@ app.post("/item", async (req, res) => {
 })
 
 // ==========================================
-// EDITAR ITEM
+// EDITAR ITEM (TRAVADO 🔒)
 // ==========================================
-app.put("/item/:id", async (req, res) => {
+app.put("/item/:id", autenticarToken, async (req, res) => {
   const { id } = req.params
 
   try {
@@ -244,23 +257,53 @@ app.put("/item/:id", async (req, res) => {
 })
 
 // ==========================================
-// EXCLUIR ITEM
+// EXCLUIR ITEM (TRAVADO 🔒)
 // ==========================================
-app.delete("/item/:id", async (req, res) => {
+app.delete("/item/:id", autenticarToken, async (req, res) => {
   const { id } = req.params
 
   try {
+    const { data: vinculos, error: erroVinculo } = await supabase
+      .from("emprestimo_item")
+      .select("id_emprestimo")
+      .eq("id_item", id)
+
+    if (erroVinculo) {
+      return res.status(500).json({ sucesso: false, mensagem: "Erro ao verificar vínculos do item." })
+    }
+
+    if (vinculos && vinculos.length > 0) {
+      const idsEmprestimos = vinculos.map(v => v.id_emprestimo)
+
+      const { data: emprestimosAtivos, error: erroEmprestimo } = await supabase
+        .from("emprestimo")
+        .select("id_emprestimo")
+        .in("id_emprestimo", idsEmprestimos)
+        .is("datadevolucao", null)
+
+      if (erroEmprestimo) {
+        return res.status(500).json({ sucesso: false, mensagem: "Erro ao validar status dos empréstimos." })
+      }
+
+      if (emprestimosAtivos && emprestimosAtivos.length > 0) {
+        return res.status(400).json({
+          sucesso: false,
+          mensagem: "Não é possível excluir este item porque ele possui um ou mais empréstimos ativos no momento!"
+        })
+      }
+    }
+
     await supabase.from("mov_entrada").delete().eq("id_item", id)
     await supabase.from("mov_saida").delete().eq("id_item", id)
     await supabase.from("emprestimo_item").delete().eq("id_item", id)
 
-    const { error } = await supabase
+    const { error: erroDeletarItem } = await supabase
       .from("item")
       .delete()
       .eq("id_item", id)
 
-    if (error) {
-      return res.status(500).json({ sucesso: false, mensagem: error.message })
+    if (erroDeletarItem) {
+      return res.status(500).json({ sucesso: false, mensagem: erroDeletarItem.message })
     }
 
     res.json({ sucesso: true, mensagem: "Item excluído com sucesso" })
@@ -271,9 +314,9 @@ app.delete("/item/:id", async (req, res) => {
 })
 
 // ==========================================
-// BUSCAR ALUNO POR RA
+// BUSCAR ALUNO POR RA (TRAVADO 🔒)
 // ==========================================
-app.get("/aluno/ra/:ra", async (req, res) => {
+app.get("/aluno/ra/:ra", autenticarToken, async (req, res) => {
   const { ra } = req.params
 
   try {
@@ -293,9 +336,9 @@ app.get("/aluno/ra/:ra", async (req, res) => {
 })
 
 // ==========================================
-// REGISTRAR MOVIMENTAÇÃO / EMPRÉSTIMO
+// REGISTRAR MOVIMENTAÇÃO / EMPRÉSTIMO (TRAVADO 🔒)
 // ==========================================
-app.post("/movimentacao", async (req, res) => {
+app.post("/movimentacao", autenticarToken, async (req, res) => {
   try {
     const {
       itens, tipo_movimentacao, id_item, quantidade, ra_aluno,
@@ -304,6 +347,7 @@ app.post("/movimentacao", async (req, res) => {
 
     const dataHoje = obterDataLocalBR()
 
+    // 1. TRATAMENTO PARA AQUISIÇÃO / DOAÇÃO
     if (tipo_movimentacao === "Aquisição" || tipo_movimentacao === "Doação") {
       const { data: item } = await supabase
         .from("item")
@@ -331,9 +375,10 @@ app.post("/movimentacao", async (req, res) => {
         })
         .eq("id_item", id_item)
 
-      return res.json({ sucesso: true, message: "Entrada registrada" })
+      return res.json({ sucesso: true, mensagem: "Entrada registrada com sucesso!" })
     }
 
+    // 2. TRATAMENTO PARA DESCARTE
     if (tipo_movimentacao === "Descarte") {
       const { data: item } = await supabase
         .from("item")
@@ -361,9 +406,10 @@ app.post("/movimentacao", async (req, res) => {
         })
         .eq("id_item", id_item)
 
-      return res.json({ sucesso: true, mensagem: "Descarte registrado" })
+      return res.json({ sucesso: true, mensagem: "Descarte registrado com sucesso!" })
     }
 
+    // 3. TRATAMENTO PARA EMPRÉSTIMO
     if (tipo_movimentacao === "Empréstimo") {
       if (!itens || itens.length === 0) {
         return res.status(400).json({ sucesso: false, mensagem: "Adicione itens na sacola!" })
@@ -384,6 +430,7 @@ app.post("/movimentacao", async (req, res) => {
         })
       }
 
+      // Verifica ou cadastra o aluno
       const { data: alunoExistente, error: erroBuscarAluno } = await supabase
         .from("aluno")
         .select("*")
@@ -412,13 +459,14 @@ app.post("/movimentacao", async (req, res) => {
         }
       }
 
+      // Busca um usuário válido para assinar o empréstimo
       const { data: usuarios } = await supabase.from("usuario").select("id_usuario").limit(1)
       if (!usuarios || usuarios.length === 0) {
         return res.status(400).json({ sucesso: false, mensagem: "Nenhum usuário cadastrado no sistema para assinar o empréstimo!" })
       }
       const usuarioIdValido = usuarios[0].id_usuario
 
-      // CORREÇÃO DA COLUNA: Alterado com sucesso de 'datapretimo' para 'dataemprestimo'
+      // Criar cabeçalho do empréstimo (Usando dataemprestimo correto)
       const { data: novoEmprestimo, error: erroEmprestimo } = await supabase
         .from("emprestimo")
         .insert([
@@ -443,6 +491,7 @@ app.post("/movimentacao", async (req, res) => {
 
       const idEmprestimoGerado = novoEmprestimo.id_emprestimo
 
+      // Percorre os itens da sacola salvando as relações e dando baixa no estoque
       for (const itemSacola of itens) {
         const { data: material, error: erroBuscarItem } = await supabase
           .from("item")
@@ -451,7 +500,7 @@ app.post("/movimentacao", async (req, res) => {
           .maybeSingle()
 
         if (erroBuscarItem || !material) {
-          console.error("Erro ao buscar item:", erroBuscarItem)
+          console.error("Erro ao buscar item da sacola:", erroBuscarItem)
           continue
         }
 
@@ -462,6 +511,7 @@ app.post("/movimentacao", async (req, res) => {
           })
         }
 
+        // Vincula na tabela intermediária (id_emprestimo e id_item)
         const { error: erroRelacao } = await supabase
           .from("emprestimo_item")
           .insert([
@@ -480,6 +530,7 @@ app.post("/movimentacao", async (req, res) => {
           })
         }
 
+        // Registra a movimentação de saída para o estoque físico
         const { error: erroMovSaida } = await supabase.from("mov_saida").insert([
           {
             id_item: material.id_item,
@@ -492,6 +543,7 @@ app.post("/movimentacao", async (req, res) => {
           console.error("Erro ao registrar movimentação de saída:", erroMovSaida)
         }
 
+        // Atualiza a quantidade disponível do material decrementando 1
         const { error: erroUpdateItem } = await supabase
           .from("item")
           .update({
@@ -510,14 +562,13 @@ app.post("/movimentacao", async (req, res) => {
     res.json({ sucesso: true })
   } catch (error) {
     console.error(error)
-    res.status(500).json({ sucesso: false, mensagem: "Erro interno" })
+    res.status(500).json({ sucesso: false, mensagem: "Erro interno no servidor" })
   }
 })
-
 // ==========================================
-// HISTÓRICO EMPRÉSTIMOS
+// HISTÓRICO EMPRÉSTIMOS (TRAVADO 🔒)
 // ==========================================
-app.get("/emprestimos-historico", async (req, res) => {
+app.get("/emprestimos-historico", autenticarToken, async (req, res) => {
   try {
     const { data: emprestimos, error } = await supabase
       .from("emprestimo")
@@ -581,9 +632,9 @@ app.get("/emprestimos-historico", async (req, res) => {
 })
 
 // ==========================================
-// DEVOLUÇÃO
+// DEVOLUÇÃO (TRAVADO 🔒)
 // ==========================================
-app.put("/emprestimo/:id/devolucao", async (req, res) => {
+app.put("/emprestimo/:id/devolucao", autenticarToken, async (req, res) => {
   const { id } = req.params
 
   try {
@@ -648,9 +699,9 @@ app.put("/emprestimo/:id/devolucao", async (req, res) => {
 })
 
 // ==========================================
-// DASHBOARD - FEED GLOBAL UNIFICADO (DEFINITIVO)
+// DASHBOARD - FEED GLOBAL UNIFICADO (TRAVADO 🔒)
 // ==========================================
-app.get("/dashboard", async (req, res) => {
+app.get("/dashboard", autenticarToken, async (req, res) => {
   try {
     const { data: itens } = await supabase.from("item").select("id_item")
     const { data: alunos } = await supabase.from("aluno").select("ra_aluno")
@@ -751,10 +802,8 @@ app.get("/dashboard", async (req, res) => {
         }
         const nomeDoItem = itensVinculados.length > 0 ? itensVinculados.join(", ") : "Item Desconhecido"
 
-        // Tolerância de leitura robusta para aceitar tanto dataemprestimo quanto datapretimo
         const dataOriginalEmp = emp.dataemprestimo || emp.datapretimo || "2026-05-29"
 
-        // Registro do Empréstimo
         feedGlobal.push({
           id: `emp-${emp.id_emprestimo}`,
           id_movimentacao: emp.id_emprestimo,
@@ -771,7 +820,6 @@ app.get("/dashboard", async (req, res) => {
           ra_aluno: emp.ra_aluno
         })
 
-        // Registro da Devolução se houver data gravada
         if (emp.datadevolucao && emp.datadevolucao.trim() !== "") {
           feedGlobal.push({
             id: `dev-${emp.id_emprestimo}`,

@@ -1,6 +1,7 @@
 import { useState } from "react"
 import axios from "axios"
 import { useNavigate } from "react-router-dom"
+import toast, { Toaster } from "react-hot-toast" // Biblioteca de avisos bonitos
 
 function Login() {
   const [usuario, setUsuario] = useState("")
@@ -9,8 +10,9 @@ function Login() {
   const navigate = useNavigate()
 
   async function fazerLogin() {
+    // Validação de campos vazios
     if (!usuario.trim() || !senha.trim()) {
-      alert("Por favor, preencha todos os campos.")
+      toast.error("Por favor, preencha todos os campos.", { id: "login-validation" })
       return
     }
 
@@ -25,17 +27,35 @@ function Login() {
 
       console.log(response.data)
 
-      // 🔥 IMPORTANTE: Guarda os dados do usuário (com a coluna perfil) na sessão do navegador
       if (response.data.sucesso) {
-        localStorage.setItem("usuario", JSON.stringify(response.data.usuario))
-        navigate("/dashboard")
+        // 🛠️ CORREÇÃO CRÍTICA: Procura o token na raiz ou dentro de usuario sem duplicar/apagar
+        const tokenFinal = response.data.token || response.data.usuario?.token
+
+        if (tokenFinal) {
+          localStorage.setItem("token", tokenFinal)
+        } else {
+          console.warn("Aviso: O backend não retornou a propriedade 'token' no formato esperado.")
+        }
+
+        // Salva os dados do usuário para controle de perfil (como estava antes)
+        if (response.data.usuario) {
+          localStorage.setItem("usuario", JSON.stringify(response.data.usuario))
+        }
+        
+        // Mensagem de sucesso flutuante
+        toast.success("Login realizado com sucesso!")
+        
+        // Delay de 1 segundo para o usuário ver o aviso antes de mudar de tela
+        setTimeout(() => {
+          navigate("/dashboard")
+        }, 1000)
       }
 
     } catch (error) {
-      console.log(error)
-      alert(
-        error.response?.data?.mensagem ||
-        "Erro no login"
+      console.error(error)
+      toast.error(
+        error.response?.data?.mensagem || "Erro no login",
+        { id: "login-api-error" }
       )
     }
   }
@@ -47,6 +67,9 @@ function Login() {
         backgroundColor: "#f1f5f9"
       }}
     >
+      {/* Gerenciador visual das mensagens de Toast */}
+      <Toaster position="top-right" reverseOrder={false} />
+
       <div
         className="card border-0 shadow-sm p-4"
         style={{
@@ -134,8 +157,6 @@ function Login() {
         >
           Entrar
         </button>
-
-        {/* 🔥 O LINK ANTIGO DE "CRIAR CONTA" FOI EXCLUÍDO TOTALMENTE DAQUI */}
       </div>
     </div>
   )
